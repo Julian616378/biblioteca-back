@@ -32,5 +32,12 @@ Route::get('/resumen-prestamos', [PrestamoController::class, 'resumen']);
 
 Route::get('/prestamos/pendientes', [PrestamoController::class, 'pendientes']);
 // Tus otras rutas API aquí...
+Route::put('/prestamos/{id}/fecha-devolucion', [PrestamoController::class, 'actualizarFechaDevolucion'])
+    ->middleware('auth:sanctum');
+    
 
+
+    Route::get('/devoluciones-pendientes', [PrestamoController::class, 'devolucionesPendientes']);
+    Route::post('/devoluciones/{id}/aprobar', [PrestamoController::class, 'aprobarDevolucion']);
+    Route::post('/devoluciones/{id}/rechazar', [PrestamoController::class, 'rechazarDevolucion']);
 });

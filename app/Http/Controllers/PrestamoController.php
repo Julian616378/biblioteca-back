@@ -179,5 +179,20 @@ public function resumen()
             'valor_total_multas' => $valorMultas
         ]);
     }
+    public function actualizarFechaDevolucion($id, Request $request)
+{
+    $request->validate([
+        'fecha_devolucion' => 'required|date'
+    ]);
+
+    $prestamo = Prestamo::findOrFail($id);
+    $prestamo->fecha_devolucion = $request->fecha_devolucion;
+    $prestamo->save();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Fecha de devolución actualizada'
+    ]);
+}
 
 }

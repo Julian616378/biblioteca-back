@@ -16,4 +16,15 @@ class Usuario extends Authenticatable
     public function prestamos() {
         return $this->hasMany(Prestamo::class, 'user_id');
     }
+    // Agregar esta relación
+// Agregar estas relaciones al modelo User
+public function solicitudesDevolucion()
+{
+    return $this->hasMany(DevolucionSolicitud::class, 'user_id');
+}
+
+public function devolucionesProcesadas()
+{
+    return $this->hasMany(DevolucionSolicitud::class, 'admin_id');
+}
 }

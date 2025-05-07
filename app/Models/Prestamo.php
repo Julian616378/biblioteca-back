@@ -19,6 +19,7 @@ class Prestamo extends Model
         'fecha_devolucion',
         'devuelto',
         'multa', 
+        'renovado',
     ];
 
     public function user()

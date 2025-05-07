@@ -30,21 +30,22 @@ class PrestamoController extends Controller
         // 1. El préstamo está aprobado
         // 2. No ha sido devuelto
         // 3. No tiene multa previa (0)
-        // 4. Hay al menos 1 minuto de retraso
+        // 4. Ya pasó la fecha de devolución (más de 3 días)
         
         if ($prestamo->aprobado && 
             !$prestamo->devuelto && 
             $prestamo->multa == 0 &&
-            Carbon::now()->gt($fechaDevolucion = Carbon::parse($prestamo->fecha_devolucion))) {
+            Carbon::now()->gt(Carbon::parse($prestamo->fecha_devolucion)->addDays(3))) {
             
-            $minutosRetraso = Carbon::now()->diffInMinutes($fechaDevolucion);
+            $diasRetraso = Carbon::now()->diffInDays(Carbon::parse($prestamo->fecha_devolucion));
             
-            if ($minutosRetraso >= 1) {
-                $prestamo->multa = 6000.00; // Valor decimal
+            if ($diasRetraso > 3) {
+                $prestamo->multa = 6000.00 * ($diasRetraso - 3); // $6000 por día adicional
                 $prestamo->save();
             }
         }
     }
+
 
 
 
@@ -100,48 +101,33 @@ class PrestamoController extends Controller
 
 
 
-    public function renovar($id, Request $request) {
-        // Verificar que el usuario es administrador
-        if ($request->user()->role != 'admin') {
-            return response()->json(['mensaje' => 'No autorizado'], 403);
-        }
-    
+    public function renovar($id)
+    {
         $prestamo = Prestamo::findOrFail($id);
-    
-        // Verificar que el préstamo no esté devuelto
-        if ($prestamo->devuelto) {
-            return response()->json(['mensaje' => 'No se puede renovar un préstamo devuelto'], 400);
-        }
-    
-        $hoy = Carbon::now();
-        $fechaDevolucion = Carbon::parse($prestamo->fecha_devolucion);
         
-        // Verificar que hoy es el último día de devolución (mismo día)
-        if (!$hoy->isSameDay($fechaDevolucion)) {
+        // Validar que sea el tercer día (último día antes de multa)
+        $fechaDev = Carbon::parse($prestamo->fecha_devolucion);
+        $hoy = Carbon::now();
+        
+        if (!$hoy->isSameDay($fechaDev)) {
             return response()->json([
-                'mensaje' => 'Solo se puede renovar el préstamo en el último día de devolución',
-                'fecha_devolucion_actual' => $prestamo->fecha_devolucion,
-                'hoy' => $hoy->format('Y-m-d')
+                'success' => false,
+                'message' => 'Solo se puede renovar el último día del préstamo (día 3)',
+                'fecha_actual' => $hoy->toDateString(),
+                'fecha_devolucion' => $fechaDev->toDateString()
             ], 400);
         }
-    
-        // Verificar que no se haya renovado antes
-        if ($prestamo->renovado) {
-            return response()->json(['mensaje' => 'Este préstamo ya fue renovado una vez'], 400);
-        }
-    
-        // Renovar por exactamente 3 días adicionales
-        $prestamo->fecha_devolucion = $fechaDevolucion->addDays(3);
-        $prestamo->renovado = true; // Marcar como renovado para evitar futuras renovaciones
+
+        // Renovar automáticamente por 3 días más
+        $prestamo->fecha_devolucion = $fechaDev->addDays(3);
         $prestamo->save();
-    
+
         return response()->json([
-            'mensaje' => 'Préstamo renovado por 3 días adicionales',
+            'success' => true,
+            'message' => 'Préstamo renovado por 3 días más',
             'nueva_fecha_devolucion' => $prestamo->fecha_devolucion
         ]);
     }
-
-
     public function devolver($id, Request $request)
     {
         $prestamo = Prestamo::where('user_id', $request->user()->id)->findOrFail($id);
@@ -229,5 +215,6 @@ public function resumen()
         'message' => 'Fecha de devolución actualizada'
     ]);
 }
+
 
 }

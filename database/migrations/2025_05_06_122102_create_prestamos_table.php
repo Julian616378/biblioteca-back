@@ -18,6 +18,7 @@ return new class extends Migration
             $table->date('fecha_prestamo');
             $table->date('fecha_devolucion');
             $table->boolean('devuelto')->default(false);
+            $table->boolean('renovado')->default(false);
             $table->timestamps();
         });
     }

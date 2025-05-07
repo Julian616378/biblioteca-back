@@ -40,7 +40,7 @@ class PrestamoController extends Controller
             $minutosRetraso = Carbon::now()->diffInMinutes($fechaDevolucion);
             
             if ($minutosRetraso >= 1) {
-                $prestamo->multa = 3000.00; // Valor decimal
+                $prestamo->multa = 6000.00; // Valor decimal
                 $prestamo->save();
             }
         }
@@ -101,18 +101,45 @@ class PrestamoController extends Controller
 
 
     public function renovar($id, Request $request) {
-        $prestamo = Prestamo::where('user_id', $request->user()->id)->findOrFail($id);
-
+        // Verificar que el usuario es administrador
+        if ($request->user()->role != 'admin') {
+            return response()->json(['mensaje' => 'No autorizado'], 403);
+        }
+    
+        $prestamo = Prestamo::findOrFail($id);
+    
+        // Verificar que el préstamo no esté devuelto
         if ($prestamo->devuelto) {
             return response()->json(['mensaje' => 'No se puede renovar un préstamo devuelto'], 400);
         }
-
-        $prestamo->fecha_devolucion = Carbon::parse($prestamo->fecha_devolucion)->addDays(3);
+    
+        $hoy = Carbon::now();
+        $fechaDevolucion = Carbon::parse($prestamo->fecha_devolucion);
+        
+        // Verificar que hoy es el último día de devolución (mismo día)
+        if (!$hoy->isSameDay($fechaDevolucion)) {
+            return response()->json([
+                'mensaje' => 'Solo se puede renovar el préstamo en el último día de devolución',
+                'fecha_devolucion_actual' => $prestamo->fecha_devolucion,
+                'hoy' => $hoy->format('Y-m-d')
+            ], 400);
+        }
+    
+        // Verificar que no se haya renovado antes
+        if ($prestamo->renovado) {
+            return response()->json(['mensaje' => 'Este préstamo ya fue renovado una vez'], 400);
+        }
+    
+        // Renovar por exactamente 3 días adicionales
+        $prestamo->fecha_devolucion = $fechaDevolucion->addDays(3);
+        $prestamo->renovado = true; // Marcar como renovado para evitar futuras renovaciones
         $prestamo->save();
-
-        return response()->json(['mensaje' => 'Préstamo renovado']);
+    
+        return response()->json([
+            'mensaje' => 'Préstamo renovado por 3 días adicionales',
+            'nueva_fecha_devolucion' => $prestamo->fecha_devolucion
+        ]);
     }
-
 
 
     public function devolver($id, Request $request)
@@ -123,16 +150,24 @@ class PrestamoController extends Controller
             return response()->json(['mensaje' => 'Préstamo ya devuelto'], 400);
         }
     
+        // Marcar como devuelto
         $prestamo->devuelto = true;
+    
+        // Eliminar multa si la había
+        if ($prestamo->multa > 0) {
+            $prestamo->multa = 0;
+        }
+    
         $prestamo->save();
     
+        // Marcar el libro como disponible
         $libro = $prestamo->libro;
         if ($libro) {
             $libro->disponible = true;
             $libro->save();
         }
     
-        return response()->json(['mensaje' => 'Libro devuelto y ahora disponible para otros préstamos']);
+        return response()->json(['mensaje' => 'Libro devuelto, multa eliminada y libro disponible para otros préstamos']);
     }
     
 
